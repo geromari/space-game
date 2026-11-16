@@ -274,24 +274,30 @@ function Launch() {
 function Travel() {
   const d = useGame((s) => s.data),
     settings = useGame((s) => s.settings),
-    { camera } = useThree();
+    { camera, scene } = useThree();
   const ship = useRef<THREE.Group>(null),
     earth = useRef<THREE.Group>(null),
     destination = useRef<THREE.Group>(null),
     target = useMemo(() => new THREE.Vector3(), []),
     cam = useMemo(() => new THREE.Vector3(), []),
-    scale = 8 / transfer.r2;
+    scale = 9.8 / transfer.r2;
   const visualElapsed = d.cruiseProgress * transfer.time;
   const displayOrbitRadius: Record<HeliocentricBodyId, number> = {
-    mercury: 3.2,
-    venus: 5.3,
-    earth: 6.1,
-    mars: 8,
-    jupiter: 13.5,
-    saturn: 18.5,
-    uranus: 24,
-    neptune: 29,
+    mercury: 3.0,
+    venus: 4.8,
+    earth: 6.8,
+    mars: 9.8,
+    jupiter: 16.0,
+    saturn: 22.0,
+    uranus: 28.0,
+    neptune: 34.0,
   };
+
+  useEffect(() => {
+    if (scene.background instanceof THREE.Color) {
+      scene.background.set("#01040a");
+    }
+  }, [scene]);
   const path = useMemo(
     () =>
       Array.from({ length: 121 }, (_, i) => {
@@ -415,8 +421,14 @@ function Travel() {
     }
     const z = settings.flightZoom || 1;
     if (settings.flightCamera === "follow")
-      cam.set(target.x + 1.8 * z, target.y + 1.2 * z, target.z + 3.2 * z);
-    else cam.set(target.x + 4 * z, target.y + 4 * z, target.z + 5.5 * z);
+      cam.set(target.x + 2.2 * z, target.y + 1.2 * z, target.z + 3.0 * z);
+    else if (settings.flightCamera === "cinematic")
+      cam.set(
+        target.x + Math.sin(data.stageTime * 0.04 + 1) * 3.6 * z,
+        target.y + 1.8 * z,
+        target.z + Math.cos(data.stageTime * 0.04 + 1) * 3.6 * z,
+      );
+    else cam.set(target.x + 5.5 * z, target.y + 5.5 * z, target.z + 7.5 * z);
     camera.position.lerp(
       cam,
       settings.reducedMotion ? 1 : 1 - Math.exp(-dt * 3),
@@ -425,26 +437,21 @@ function Travel() {
   });
   return (
     <>
-      <Stars radius={180} depth={80} count={2200} factor={2.2} fade speed={0} />
-      <ambientLight intensity={0.25} />
-      <directionalLight
-        position={[-12, 7, 10]}
-        intensity={2.7}
-        color="#fff0da"
-      />
+      <Stars radius={260} depth={100} count={3500} factor={3.2} fade speed={0} />
+      <Stars radius={140} depth={50} count={900} factor={4.5} fade speed={0} />
+      <ambientLight intensity={0.18} color="#6d8da8" />
       {d.destination === "mars" ? (
         <>
           <Planet kind="sun" radius={1.4} spin={false} />
           {settings.showLabels && (
             <SceneLabel
-              position={[0, 1.8, 0]}
+              position={[0, 2.0, 0]}
               color="#f0c77b"
               fontSize={0.2}
             >
               SUN · ORBITAL FOCUS
             </SceneLabel>
           )}
-          <pointLight intensity={65} color="#ffd34f" distance={45} />
           {settings.showOrbits && (
             <>
               <Line
@@ -560,13 +567,14 @@ function Travel() {
         </group>
       )}
       <group ref={ship}>
-        <Spacecraft design={d.design} scale={0.065} stowed/>
-        <mesh position={[0, 0, -0.22]}>
-          <sphereGeometry args={[0.12, 12, 8]} />
-          <meshBasicMaterial color="#f07845" />
-        </mesh>
+        <Spacecraft
+          design={d.design}
+          scale={0.34}
+          solarDeployed={d.cruiseChoice !== "save"}
+          stowed={false}
+        />
         {settings.showLabels && (
-          <SceneLabel position={[0, 0.35, 0]}>
+          <SceneLabel position={[0, 0.75, 0]}>
             VYDEX–01 · TRANSFER
           </SceneLabel>
         )}
@@ -585,13 +593,16 @@ function Travel() {
 export default function Cosmos() {
   const stage = useGame((s) => s.data.stage),
     destination = useGame((s) => s.data.destination),
-    { camera } = useThree();
+    { camera, scene } = useThree();
   useEffect(() => {
+    if (stage !== "launch" && scene.background instanceof THREE.Color) {
+      scene.background.set("#01040a");
+    }
     if (stage === "briefing" || stage === "debrief") {
       camera.position.set(0, 1, 12);
       camera.lookAt(2.4, 0.2, 0);
     }
-  }, [stage, destination, camera]);
+  }, [stage, destination, camera, scene]);
   return (
     <>
       <color attach="background" args={["#01050b"]} />

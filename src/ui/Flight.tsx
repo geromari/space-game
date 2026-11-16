@@ -152,7 +152,7 @@ export function LaunchPanel() {
                 })
               }
             >
-              <span>{d.launchChecks[i] ? <Check size={16} /> : i + 1}</span>
+              <span aria-hidden="true">{d.launchChecks[i] ? <Check size={16} /> : i + 1}</span>
               {label}
             </button>
           ))}
@@ -281,6 +281,7 @@ export function TravelPanel() {
               className={d.cruiseChoice === "save" ? "chosen" : ""}
               disabled={d.cruiseChoice !== "pending"}
               data-tutorial="hibernate"
+              aria-label="Hibernate"
               onClick={() => act(() => engine.chooseCruise("save"))}
             >
               <b>Hibernate</b>
@@ -289,6 +290,7 @@ export function TravelPanel() {
             <button
               className={d.cruiseChoice === "science" ? "chosen" : ""}
               disabled={d.cruiseChoice !== "pending"}
+              aria-label="Keep science active"
               onClick={() => act(() => engine.chooseCruise("science"))}
             >
               <b>Keep science active</b>

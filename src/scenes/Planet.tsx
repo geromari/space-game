@@ -3,6 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { useGame } from "../store";
 import type { SolarBodyId } from "../data/solarSystem";
+
 const files: Partial<Record<SolarBodyId, string>> = {
   mars: "/assets/planets/mars.jpg",
   earth: "/assets/planets/earth.jpg",
@@ -12,6 +13,7 @@ const files: Partial<Record<SolarBodyId, string>> = {
   jupiter: "/assets/planets/jupiter.jpg",
   saturn: "/assets/planets/saturn.jpg",
 };
+
 const planetTints: Record<SolarBodyId, string> = {
   sun: "#ffd34f",
   mercury: "#9b8e82",
@@ -24,6 +26,137 @@ const planetTints: Record<SolarBodyId, string> = {
   uranus: "#74c7c9",
   neptune: "#4d79c7",
 };
+
+export function SunStar({ radius = 1.4 }: { radius?: number }) {
+  const map = useLocalMap(files.sun ?? null);
+  const coreRef = useRef<THREE.Mesh>(null);
+  const coronaRef = useRef<THREE.Mesh>(null);
+  const outerCoronaRef = useRef<THREE.Mesh>(null);
+  const flareGroup = useRef<THREE.Group>(null);
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+    if (coreRef.current) coreRef.current.rotation.y = t * 0.018;
+    if (coronaRef.current) {
+      const s = 1.05 + Math.sin(t * 1.5) * 0.015;
+      coronaRef.current.scale.set(s, s, s);
+    }
+    if (outerCoronaRef.current) {
+      const s = 1.32 + Math.sin(t * 1.1 + 0.8) * 0.025;
+      outerCoronaRef.current.scale.set(s, s, s);
+      outerCoronaRef.current.rotation.z = t * 0.015;
+    }
+    if (flareGroup.current) {
+      flareGroup.current.rotation.z = t * 0.025;
+      flareGroup.current.rotation.y = t * 0.018;
+    }
+  });
+
+  return (
+    <group>
+      {/* Central Omnidirectional Solar Radiance */}
+      <pointLight
+        position={[0, 0, 0]}
+        intensity={190}
+        color="#fff4e0"
+        distance={250}
+        decay={1.15}
+      />
+
+      {/* Photosphere with NASA Solar Texture */}
+      <mesh ref={coreRef}>
+        <sphereGeometry args={[radius, 64, 48]} />
+        <meshBasicMaterial
+          map={map}
+          color={map ? "#fff4e5" : "#ffba42"}
+        />
+      </mesh>
+
+      {/* Photosphere Limb Darkening & Convective Rim Glow */}
+      <mesh scale={1.008}>
+        <sphereGeometry args={[radius, 48, 32]} />
+        <shaderMaterial
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          uniforms={{
+            innerColor: { value: new THREE.Color("#ffaa22") },
+            rimColor: { value: new THREE.Color("#ff4400") },
+          }}
+          vertexShader={`
+            varying vec3 vNormal;
+            varying vec3 vView;
+            void main() {
+              vec4 p = modelViewMatrix * vec4(position, 1.0);
+              vNormal = normalize(normalMatrix * normal);
+              vView = normalize(-p.xyz);
+              gl_Position = projectionMatrix * p;
+            }
+          `}
+          fragmentShader={`
+            uniform vec3 innerColor;
+            uniform vec3 rimColor;
+            varying vec3 vNormal;
+            varying vec3 vView;
+            void main() {
+              float d = dot(normalize(vNormal), normalize(vView));
+              float rim = pow(1.0 - clamp(d, 0.0, 1.0), 2.2);
+              vec3 col = mix(innerColor, rimColor, rim);
+              gl_FragColor = vec4(col, rim * 0.8);
+            }
+          `}
+        />
+      </mesh>
+
+      {/* Inner Chromosphere / Transition Region */}
+      <mesh ref={coronaRef} scale={1.07}>
+        <sphereGeometry args={[radius, 32, 24]} />
+        <meshBasicMaterial
+          color="#ff7711"
+          transparent
+          opacity={0.36}
+          blending={THREE.AdditiveBlending}
+          side={THREE.BackSide}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* Outer Corona Halo */}
+      <mesh ref={outerCoronaRef} scale={1.35}>
+        <sphereGeometry args={[radius, 32, 24]} />
+        <meshBasicMaterial
+          color="#ffaa33"
+          transparent
+          opacity={0.18}
+          blending={THREE.AdditiveBlending}
+          side={THREE.BackSide}
+          depthWrite={false}
+        />
+      </mesh>
+
+      {/* Solar Prominence Arcs */}
+      <group ref={flareGroup}>
+        {[0, 1, 2, 3, 4, 5].map((i) => {
+          const angle = (i * Math.PI) / 3;
+          return (
+            <group key={i} rotation={[0, 0, angle]}>
+              <mesh position={[radius * 1.06, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                <torusGeometry args={[radius * 0.16, radius * 0.024, 8, 16, Math.PI * 0.82]} />
+                <meshBasicMaterial
+                  color="#ff4400"
+                  transparent
+                  opacity={0.38}
+                  blending={THREE.AdditiveBlending}
+                  depthWrite={false}
+                />
+              </mesh>
+            </group>
+          );
+        })}
+      </group>
+    </group>
+  );
+}
 // Optional image loading leaves a colored sphere visible if an asset cannot load.
 function useLocalMap(url: string | null, color = true) {
   const [map, setMap] = useState<THREE.Texture | null>(null);
@@ -62,6 +195,9 @@ export function Planet({
   radius?: number;
   spin?: boolean;
 }) {
+  if (kind === "sun") {
+    return <SunStar radius={radius} />;
+  }
   const map = useLocalMap(files[kind] ?? null);
   const venusClouds = useMemo(() => {
     if (kind !== "venus") return null;
@@ -115,18 +251,14 @@ export function Planet({
     <group ref={globe} rotation={[0, -0.6, kind === "earth" ? 0.15 : 0.12]}>
       <mesh>
         <sphereGeometry args={[radius, 64, 40]} />
-        {kind === "sun" ? (
-          <meshBasicMaterial map={map} color={map ? "#fff4e5" : "#ffbe64"} />
-        ) : (
-          <meshStandardMaterial
-            map={map}
-            color={planetTints[kind]}
-            roughness={kind === "earth" ? 0.7 : 0.96}
-            metalness={0}
-            bumpMap={kind === "mars" ? bump : null}
-            bumpScale={radius * 0.009}
-          />
-        )}
+        <meshStandardMaterial
+          map={map}
+          color={planetTints[kind]}
+          roughness={kind === "earth" ? 0.7 : 0.96}
+          metalness={0}
+          bumpMap={kind === "mars" ? bump : null}
+          bumpScale={radius * 0.009}
+        />
       </mesh>
       {kind === "venus" && venusClouds && (
         <mesh scale={1.003}>

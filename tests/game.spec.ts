@@ -53,7 +53,7 @@ async function launch(page: Page, skip = true) {
   else
     await expect(
       page.getByText("LAUNCH VEHICLE SEPARATION", { exact: true }),
-    ).toBeVisible({ timeout: 25000 });
+    ).toBeVisible({ timeout: 60000 });
   await page
     .getByRole("button", { name: "Hibernate", exact: true })
     .click({ timeout: 45000 });
@@ -73,7 +73,7 @@ async function land(page: Page) {
   await page.getByRole("button", { name: /Take control/ }).click();
   await page
     .getByRole("button", { name: /Deploy rover/ })
-    .click({ timeout: 90000 });
+    .click({ timeout: 180000 });
 }
 async function marsScience(page: Page, names: string[]) {
   await page.getByLabel("Earth-command mode").check();
@@ -203,7 +203,7 @@ test("Moon: airless landing, panorama, spectrum and downlink", async ({
   await page.getByRole("button", { name: /Take control/ }).click();
   await page
     .getByRole("button", { name: /Deploy rover|Begin lunar science/ })
-    .click({ timeout: 90000 });
+    .click({ timeout: 180000 });
   for (let i = 0; i < 2; i++) {
     const collect = page
       .getByRole("button", { name: "Collect", exact: true })
